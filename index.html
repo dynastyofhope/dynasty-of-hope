@@ -753,7 +753,18 @@ footer.site h4{color:var(--gold)}
                         (see google-apps-script/Code.gs). Leave '' to only save
                         inside each visitor's browser.
    --------------------------------------------------------------------------- */
-var CONFIG = { demoOnFirstRun: false, submissionEndpoint: '' };
+var CONFIG = {
+  demoOnFirstRun: false,
+  /* --- Google Sheet database -------------------------------------------------
+     cloudUrl   : your Apps Script Web App /exec URL  (see google-apps-script/Code.gs)
+     adminToken : the ADMIN_TOKEN set in that script's Project Settings
+     Leave cloudUrl as '' and the site keeps working offline, storing records in
+     this browser only. */
+  cloudUrl:   'https://script.google.com/macros/s/AKfycbzlDHSz0VAIReohbHoNN2GqVkwUkzDpWp-VbNRBX0xFwBB05G7JdjngGnva6VJ-lEqm/exec',
+  adminToken: '',          /* optional: paste ADMIN_TOKEN here, or save it once
+                              in Admin -> Data -> "Google Sheet token" */
+  submissionEndpoint: ''   /* legacy single-field endpoint, optional */
+};
 
 /* Official bracket published by the committee: they run the draw locally, export
    "Publish fixtures" and commit fixtures.json to the repo — every visitor then sees
@@ -899,15 +910,98 @@ var NO_PP = "data:image/svg+xml," + encodeURIComponent(
   "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23eef2f8'/>" +
   "<circle cx='50' cy='38' r='20' fill='%23b9c6da'/><path d='M15 100c0-22 16-33 35-33s35 11 35 33z' fill='%23b9c6da'/></svg>");
 
-/* ---- forward a registration to the tournament office (Google Sheet / Drive) ---- */
-function sendToOffice(kind, payload) {
-  if (!CONFIG.submissionEndpoint) return Promise.resolve(false);
+/* ==========================================================================
+   GOOGLE SHEET BACKEND  (the one central registration database)
+   Writes go as text/plain POSTs (no CORS pre-flight); reads use JSONP, which
+   works from any website — so the Sheet stays the single source of truth while
+   the site itself is just static files on GitHub Pages.
+   ========================================================================== */
+function waNumber(phone) {
+  var d = String(phone || '').replace(/\D/g, '');
+  if (d.indexOf('234') === 0 && d.length === 13) return d;
+  if (d.length === 11 && d.charAt(0) === '0') return '234' + d.slice(1);
+  if (d.length === 10) return '234' + d;
+  return '';
+}
+function waLink(phone, text) {
+  var n = waNumber(phone);
+  return n ? 'https://wa.me/' + n + '?text=' + encodeURIComponent(text || '') : '';
+}
+function confirmText(t) {
+  return 'Dynasty of Hope Foundation — ' + (t.teamName || '') + ': your registration for the ' +
+    'Goni Gora Community Development Football Championship 2026 is CONFIRMED. Reference ' +
+    (t.cloudRef || ref(t.id)) + '. Venue: Goni Gora Community Field, Chikun LGA, Kaduna State. ' +
+    'Kick-off: Saturday, 26 September 2026. Please bring passports for any player not yet ' +
+    'uploaded. Hotline 0703 382 8292.';
+}
+function cloudOn() { return !!CONFIG.cloudUrl; }
+function cloudToken() {
+  return CONFIG.adminToken || (state.settings && state.settings.cloudToken) || '';
+}
+function saveCloudToken(value) {
+  state.settings.cloudToken = String(value || '').trim();
+  save();
+  flash('ok', state.settings.cloudToken
+    ? 'Google Sheet token saved in this browser.'
+    : 'Google Sheet token cleared.');
+  renderAdmin();
+}
+
+function cloudPost(payload, cb) {
+  if (!cloudOn()) { if (cb) cb(null); return; }
   try {
-    return fetch(CONFIG.submissionEndpoint, {
-      method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ kind: kind, payload: payload, at: fmtDate() })
-    }).then(function () { return true; }).catch(function () { return false; });
-  } catch (e) { return Promise.resolve(false); }
+    fetch(CONFIG.cloudUrl, {
+      method: 'POST', redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.text(); }).then(function (txt) {
+      var j = null; try { j = JSON.parse(txt); } catch (e) { j = null; }
+      if (cb) cb(j || { ok: true, opaque: true });   // opaque = sent, reply unreadable
+    }).catch(function () { if (cb) cb(null); });
+  } catch (e) { if (cb) cb(null); }
+}
+
+function cloudGet(action, cb) {
+  if (!cloudOn()) { if (cb) cb(null); return; }
+  var name = 'dohCB' + Math.random().toString(36).slice(2, 10);
+  var script = document.createElement('script');
+  var done = false;
+  function cleanup() {
+    try { delete window[name]; } catch (e) {}
+    try { if (script.parentNode) script.parentNode.removeChild(script); } catch (e) {}
+  }
+  function finish(data) { if (done) return; done = true; cleanup(); if (cb) cb(data); }
+  window[name] = function (data) { finish(data); };
+  script.onerror = function () { finish(null); };
+  script.src = CONFIG.cloudUrl + '?action=' + encodeURIComponent(action) +
+    ((action === 'list')
+      ? '&token=' + encodeURIComponent(cloudToken()) : '') +
+    '&callback=' + name;
+  document.head.appendChild(script);
+  setTimeout(function () { finish(null); }, 20000);
+}
+
+/* Approved teams published by the committee — identical for every visitor, and
+   stripped of phone numbers, addresses and passports. */
+var cloudTeams = null, cloudUpdated = '';
+function loadCloudPublic() {
+  if (!cloudOn()) return;
+  cloudGet('public', function (data) {
+    if (!data || !data.ok || !data.teams) return;
+    cloudTeams = data.teams; cloudUpdated = data.updated || '';
+    renderTeams(); renderHome();
+  });
+}
+function publicTeams() {
+  if (cloudTeams) return cloudTeams.map(function (t) {
+    return { id: t.ref, teamName: t.teamName, community: t.community, lga: t.lga,
+      coachName: t.coachName, captainName: t.captain, jerseyColors: t.jersey,
+      status: t.status || 'approved', createdAt: t.registered, cloud: true,
+      players: (t.players || []).map(function (p) {
+        return { name: p.name, no: p.no, pos: p.pos, age: p.age, captain: p.captain };
+      }) };
+  });
+  return state.teams.filter(function (t) { return t.status === 'approved'; });
 }
 
 /* ==========================================================================
@@ -949,7 +1043,7 @@ function renderHome() {
   $('stPlayers').textContent = s.players;
   $('stOfficials').textContent = s.officials;
   var box = $('homeTeams');
-  var recent = state.teams.slice(-8).reverse();
+  var recent = publicTeams().slice(-8).reverse();
   if (!recent.length) {
     box.innerHTML = '<div class="note" style="grid-column:1/-1;text-align:center">No team has registered yet — be the first! <a href="#" onclick="go(\'register\');return false">Register now</a>.</div>';
     return;
@@ -965,19 +1059,24 @@ function renderTeams() {
   var s = statCounts();
   $('teamsSummary').textContent = s.teams + ' of 16 slots filled · ' + s.players + ' players captured in the tournament database.';
   var grid = $('teamGrid');
-  grid.innerHTML = state.teams.map(function (t) {
+  var list = publicTeams();
+  if (cloudOn()) {
+    $('teamsSummary').textContent = list.length + ' confirmed club' + (list.length === 1 ? '' : 's') +
+      ' · ' + list.reduce(function (n, t) { return n + t.players.length; }, 0) +
+      ' players · phone numbers and addresses are private (committee access only).';
+  }
+  grid.innerHTML = list.map(function (t) {
     return '<div class="card" data-txt="' + esc((t.teamName + ' ' + (t.community || '') + ' ' + t.coachName + ' ' +
         t.players.map(function (p) { return p.name; }).join(' ')).toLowerCase()) + '">' +
       '<div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start">' +
       '<div><h3 style="margin:0">' + esc(t.teamName) + '</h3>' +
       '<p style="margin:.1rem 0;color:var(--muted);font-size:.86rem">📍 ' + esc(t.community || 'Goni Gora') + '</p></div>' +
-      '<span class="pill ' + t.status + '">' + t.status + '</span></div>' +
+      '<span class="pill approved">Confirmed</span></div>' +
       '<div class="kv"><span>Players</span><b>' + t.players.length + ' / 15</b></div>' +
       '<div class="kv"><span>Coach</span><b>' + esc(t.coachName) + '</b></div>' +
-      '<div class="kv"><span>Coach phone</span><b>' + esc(t.coachPhone) + '</b></div>' +
       '<div class="kv"><span>Captain</span><b>' + esc(t.captainName || '—') + '</b></div>' +
-      '<p style="margin-top:.9rem"><button class="btn small dark" onclick="viewTeam(' + t.id + ')">View squad →</button></p></div>';
-  }).join('') || '<div class="note">No team has registered yet. <a href="#" onclick="go(\'register\');return false">Be the first to register</a>.</div>';
+      '<p style="margin-top:.9rem"><button class="btn small dark" onclick="viewTeam(\'' + t.id + '\')">View squad →</button></p></div>';
+  }).join('') || '<div class="note">No team has been confirmed yet. <a href="#" onclick="go(\'register\');return false">Register your club</a>.</div>';
 }
 $('teamSearch').addEventListener('input', function (e) {
   var q = e.target.value.toLowerCase();
@@ -987,18 +1086,15 @@ $('teamSearch').addEventListener('input', function (e) {
   }
 });
 function viewTeam(id) {
-  var t = state.teams.filter(function (x) { return x.id === id; })[0];
+  var t = state.teams.filter(function (x) { return String(x.id) === String(id); })[0];
+  if (!t) t = (publicTeams().filter(function (x) { return String(x.id) === String(id); })[0]);
   if (!t) return;
-  var photos = t.players.map(function (p) {
-    return '<div class="passport"><img src="' + (p.passport || NO_PP) + '" alt="' + esc(p.name) + '">' +
-      '<div><strong>#' + esc(p.no || '—') + '</strong> ' + esc(p.name) + '</div>' +
-      '<div style="color:var(--muted)">' + esc(p.pos) + '</div></div>';
-  }).join('');
+  /* Public view: never publish phone numbers, addresses, NINs or passports. */
   var rows = t.players.map(function (p, i) {
     return '<tr><td>' + esc(p.no || i + 1) + '</td><td><strong>' + esc(p.name) + '</strong>' +
       (p.captain ? ' <span class="pill approved">C</span>' : '') + '</td><td>' + esc(p.pos) + '</td><td>' + esc(p.age) +
-      '</td><td>' + esc(p.phone) + '</td><td>' + esc(p.address) + '</td><td>' + esc(p.nin || '—') + '</td></tr>';
-  }).join('') || '<tr><td colspan="7">No players listed yet.</td></tr>';
+      '</td></tr>';
+  }).join('') || '<tr><td colspan="4">No players listed yet.</td></tr>';
   $('teamDetail').innerHTML =
     '<div class="form-wrap">' +
     '<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem">' +
@@ -1008,14 +1104,15 @@ function viewTeam(id) {
     '<p class="hint" style="margin:.3rem 0 0">Registered ' + esc(t.createdAt) + '</p>' +
     '<button class="btn small line no-print" onclick="go(\'teams\')">← All teams</button></div></div>' +
     '<div class="row" style="margin-top:1.4rem">' +
-    '<div class="card"><h4>Coach</h4><p style="margin:0">' + esc(t.coachName) + '<br>📞 ' + esc(t.coachPhone) + '</p></div>' +
+    '<div class="card"><h4>Coach</h4><p style="margin:0">' + esc(t.coachName) + '</p></div>' +
     '<div class="card"><h4>Captain</h4><p style="margin:0">' + esc(t.captainName || '—') + '</p></div>' +
     '<div class="card"><h4>Jersey</h4><p style="margin:0">' + esc(t.jerseyColors || '—') + '</p></div>' +
     '<div class="card"><h4>Squad</h4><p style="margin:0">' + t.players.length + ' / 15 players</p></div></div>' +
-    '<h3 style="margin-top:1.8rem">Accreditation passports</h3><div class="passport-grid">' + photos + '</div>' +
-    '<h3 style="margin-top:1.8rem">Squad database</h3><div class="table-wrap"><table><thead><tr>' +
-    '<th>#</th><th>Player name</th><th>Position</th><th>Age</th><th>Phone number</th><th>Residential address</th><th>NIN</th>' +
+    '<h3 style="margin-top:1.8rem">Squad</h3><div class="table-wrap"><table><thead><tr>' +
+    '<th>#</th><th>Player name</th><th>Position</th><th>Age</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<p class="hint" style="margin-top:1rem">Player phone numbers, addresses and passports are held ' +
+    'in the committee\'s private register and are never published online.</p>' +
     (t.form ? '<p style="margin-top:1.2rem"><a class="btn small dark" target="_blank" href="' + t.form.data +
       '" download="' + esc(t.form.name) + '">📄 View uploaded registration form</a></p>' : '') +
     (t.notes ? '<div class="hint" style="margin-top:.8rem">Committee note: ' + esc(t.notes) + '</div>' : '') + '</div>';
@@ -1169,15 +1266,44 @@ $('regForm').addEventListener('submit', function (e) {
       notes: allowNoPP ? 'Passports pending - to be submitted at accreditation' : '',
       status: 'pending', createdAt: fmtDate(), players: players
     };
+    team.clientId = 'C' + Date.now() + Math.random().toString(36).slice(2, 7);
     state.teams.push(team);
     save();
     $('regBusy').textContent = '';
     showSuccess(team);
-    sendToOffice('team', team).then(function (sent) {
-      flash(sent ? 'ok' : 'warn', sent
-        ? 'Registration received and forwarded to the tournament office.'
-        : 'Saved on this device. Ask the committee for the official link if you need a receipt confirmation.');
-    });
+
+    if (cloudOn()) {
+      $('regBusy').textContent = 'Sending your entry to the tournament register…';
+      cloudPost({
+        action: 'register', clientId: team.clientId,
+        team: { teamName: team.teamName, community: team.community, lga: team.lga,
+                coachName: team.coachName, coachPhone: team.coachPhone,
+                contactEmail: team.email, captainName: team.captainName,
+                jersey: team.jerseyColors },
+        players: team.players.map(function (p) {
+          return { name: p.name, no: p.no, pos: p.pos, age: p.age, phone: p.phone,
+                   address: p.address, nin: p.nin, captain: p.captain, passport: p.passport };
+        })
+      }, function (res) {
+        $('regBusy').textContent = '';
+        if (res && res.ok && !res.duplicate) {
+          team.cloudRef = res.ref || ''; team.synced = true; save();
+          flash('ok', 'Registration received — reference ' + (res.ref || ref(team.id)) +
+            '. A confirmation email is on its way' + (res.smsed ? ', and a text message has been sent to ' + esc(team.coachPhone) : '') + '.');
+        } else if (res && res.duplicate) {
+          team.synced = true; team.cloudRef = res.ref || ''; save();
+          flash('ok', 'This entry was already received — reference ' + (res.ref || ref(team.id)) + '.');
+        } else if (res === null) {
+          flash('warn', 'Saved on this device, but we could not reach the tournament register. ' +
+            'Your entry is safe — please call ' + '0703 382 8292' + ' so the committee can confirm it.');
+        } else {
+          flash('error', 'The tournament register could not accept the entry: ' + (res.error || 'unknown error') + '.');
+        }
+      });
+    } else {
+      flash('warn', 'Saved on this device only — this copy of the site is not connected to the ' +
+        'tournament register. Ask the committee for the official link.');
+    }
   }).catch(function (err) {
     $('regBusy').textContent = '';
     flash('error', 'Could not process uploads: ' + err.message);
@@ -1199,8 +1325,15 @@ function showSuccess(t) {
     '<div class="table-wrap" style="margin-top:1.2rem;text-align:left"><table><thead><tr><th>#</th><th>Passport</th>' +
     '<th>Player name</th><th>Pos.</th><th>Age</th><th>Phone</th><th>Address</th></tr></thead><tbody>' + rows +
     '</tbody></table></div><p class="hint">Squad size: ' + t.players.length + ' / 15 players.</p>' +
-    '<p style="margin-top:1rem" class="no-print"><button class="btn dark" onclick="printSuccess()">🖨️ Print this page</button> ' +
-    '<button class="btn line" onclick="resetRegForm()">Register another team</button></p></div>';
+    '<p style="margin-top:1rem" class="no-print">' +
+    '<a class="btn dark" style="background:#25D366;border-color:#25D366" target="_blank" rel="noopener" ' +
+    'href="' + waLink('0703 382 8292', 'Hello Dynasty of Hope — I have just registered ' +
+    esc(t.teamName) + '. Reference ' + (t.cloudRef || ref(t.id)) + '.') +
+    '">💬 Message the office on WhatsApp</a> ' +
+    '<button class="btn dark" onclick="printSuccess()">🖨️ Print this page</button> ' +
+    '<button class="btn line" onclick="resetRegForm()">Register another team</button></p>' +
+    '<p class="hint">WhatsApp and calls: 0703 382 8292. Your confirmation email is on its way' +
+    (t.cloudRef ? ' (reference ' + esc(t.cloudRef) + ')' : '') + '.</p></div>';
   $('regSuccess').classList.remove('hidden');
   reveal($('regSuccess'));
   flash('ok', 'Team registered successfully.');
@@ -1245,10 +1378,18 @@ $('offForm').addEventListener('submit', function (e) {
       form: ff ? { name: ff.name, data: r[1] } : null, status: 'pending', createdAt: fmtDate()
     });
     save();
+    var off = state.officials[state.officials.length - 1];
     $('offForm').reset();
     $('offPrev').style.display = 'none';
     flash('ok', 'Thank you! Your official/referee registration has been received.');
-    sendToOffice('official', state.officials[state.officials.length - 1]);
+    if (cloudOn()) {
+      cloudPost({ action: 'official', fullName: off.fullName, role: off.role, phone: off.phone,
+        address: off.address, email: off.email, experience: off.experience,
+        qualification: off.qualification, passport: off.passport }, function (res) {
+        if (res && res.ok) flash('ok', 'Reference ' + res.ref + ' — a confirmation is on its way.');
+        else if (res === null) flash('warn', 'Saved on this device but not yet delivered to the register.');
+      });
+    }
     go('officials');
   });
 });
@@ -1268,8 +1409,15 @@ $('docForm').addEventListener('submit', function (e) {
     save();
     $('docForm').reset();
     renderDocs();
-    sendToOffice('document', state.docs[state.docs.length - 1]);
+    var doc = state.docs[state.docs.length - 1];
     flash('ok', 'Document uploaded. The committee has received it.');
+    if (cloudOn()) {
+      cloudPost({ action: 'document', uploader: doc.uploader, docType: doc.docType,
+        note: doc.note, name: doc.name, data: doc.data }, function (res) {
+        if (res && res.ok) flash('ok', 'Saved to the tournament register — reference ' + res.ref + '.');
+        else if (res === null) flash('warn', 'Saved on this device but not yet delivered to the register.');
+      });
+    }
   });
 });
 function renderDocs() {
@@ -1492,6 +1640,8 @@ function renderAdminTeams() {
         '<td>' + (t.form ? '<a target="_blank" href="' + t.form.data + '" download="' + esc(t.form.name) + '">view</a>' : '—') + '</td>' +
         '<td><span class="pill ' + t.status + '">' + t.status + '</span></td>' +
         '<td style="white-space:nowrap">' +
+        (t.coachPhone ? '<a class="btn small ghost" target="_blank" rel="noopener" href="' +
+          waLink(t.coachPhone, confirmText(t)) + '" title="Message this club on WhatsApp (free)">📱 WhatsApp</a> ' : '') +
         (t.status !== 'approved' ? '<button class="btn small ok" onclick="setStatus(' + t.id + ',\'approved\')">Approve</button> ' : '') +
         (t.status !== 'rejected' ? '<button class="btn small danger" onclick="setStatus(' + t.id + ',\'rejected\')">Reject</button> ' : '') +
         '<button class="btn small danger" onclick="delTeam(' + t.id + ')">🗑️</button></td></tr>';
@@ -1504,9 +1654,75 @@ function renderAdminTeams() {
   });
 }
 function setStatus(id, status) {
-  var t = state.teams.filter(function (x) { return x.id === id; })[0];
-  if (t) { t.status = status; save(); renderAdmin(); flash('ok', 'Team status updated.'); }
+  var t = state.teams.filter(function (x) { return String(x.id) === String(id); })[0];
+  if (!t) return;
+  t.status = status; save(); renderAdmin();
+  if (cloudOn() && (t.cloudRef || t.clientId)) {
+    cloudPost({ action: 'status', token: CONFIG.adminToken,
+      ref: t.cloudRef || '', clientId: t.clientId || '', status: status,
+      notes: t.notes || '' }, function (res) {
+      if (res && res.ok) {
+        flash('ok', 'Saved to your Google Sheet — ' +
+          ((res.messages && res.messages.length) ? res.messages.join(', ') + '.' :
+            'the club has been notified.'));
+      } else if (res === null) {
+        flash('warn', 'Status changed here, but the Google Sheet could not be reached. Sync again later.');
+      } else {
+        flash('error', 'The Google Sheet rejected the update: ' + (res.error || 'unknown error'));
+      }
+    });
+  } else {
+    flash('ok', 'Team status updated.');
+  }
 }
+
+/* ---------- load the central register (Google Sheet) into the admin panel --- */
+function syncFromCloud() {
+  if (!cloudOn()) { flash('warn', 'No Google Sheet is connected to this copy of the site.'); return; }
+  if (!cloudToken()) {
+    flash('error', 'Enter your Google Sheet admin token first (Admin → Data → Google Sheet token).');
+    go('admin');
+    var tabs = document.querySelectorAll('button');
+    for (var i = 0; i < tabs.length; i++) {
+      if (/Data/.test(tabs[i].textContent)) { tabs[i].click(); break; }
+    }
+    return;
+  }
+  flash('ok', 'Loading the central register from Google Sheets…');
+  cloudGet('list', function (data) {
+    if (!data || !data.ok) {
+      flash('error', 'Could not load the register: ' +
+        ((data && data.error) ? data.error : 'no response — check the Web App URL and ADMIN_TOKEN.'));
+      return;
+    }
+    state.teams = (data.teams || []).map(function (t) {
+      return {
+        id: nextId(), cloudRef: t.ref, clientId: t.clientId, synced: true,
+        teamName: t.teamName, community: t.community, lga: t.lga, coachName: t.coachName,
+        coachPhone: t.coachPhone, email: t.contactEmail, captainName: t.captain,
+        jerseyColors: t.jersey, status: t.status || 'pending', notes: t.notes || '',
+        createdAt: t.registered || '', form: null,
+        players: (t.players || []).map(function (p) {
+          return { name: p.name, no: p.no, pos: p.pos, age: p.age, phone: p.phone,
+                   address: p.address, nin: p.nin, captain: !!p.captain, passport: p.passport };
+        })
+      };
+    });
+    state.officials = (data.officials || []).map(function (o) {
+      return { id: nextId(), cloudRef: o.ref, fullName: o.fullName, role: o.role, phone: o.phone,
+        address: o.address, email: o.email, experience: o.experience,
+        qualification: o.qualification, passport: o.passport, status: o.status || 'pending',
+        createdAt: o.registered || '' };
+    });
+    cloudLastSync = new Date().toLocaleString();
+    cloudLog = data.log || [];
+    save(); renderAdmin(); renderTeams(); renderHome();
+    flash('ok', 'Loaded ' + state.teams.length + ' team' + (state.teams.length === 1 ? '' : 's') +
+      ' and ' + state.officials.length + ' official' + (state.officials.length === 1 ? '' : 's') +
+      ' from your Google Sheet.');
+  });
+}
+var cloudLastSync = '', cloudLog = [];
 function delTeam(id) {
   if (!confirm('Delete this team and all its players? This cannot be undone.')) return;
   state.teams = state.teams.filter(function (t) { return t.id !== id; });
@@ -1644,15 +1860,42 @@ function delDoc(id) {
   state.docs = state.docs.filter(function (d) { return d.id !== id; }); save(); renderAdmin();
 }
 function renderDataTab() {
-  $('tab-data').innerHTML = '<h3>💾 Data &amp; backups</h3>' +
-    '<p class="hint">All records live in this browser (localStorage). Export a backup regularly — especially the ' +
-    'full JSON backup, which can be restored on any computer.</p>' +
+  var cloudBox = cloudOn()
+    ? '<div class="' + 'note' + '" style="margin-bottom:1rem">' +
+      '<b>☁️ Central register: connected.</b> Every registration on this site is written ' +
+      'straight into your private Google Sheet, and passports go to your Google Drive. ' +
+      'Last loaded: ' + esc(cloudLastSync || 'not yet this session') + '.' +
+      '<div style="margin-top:.8rem"><label>Google Sheet admin token ' +
+      '<span class="hint">(ADMIN_TOKEN from the Apps Script project settings)</span></label>' +
+      '<div style="display:flex;gap:.5rem;flex-wrap:wrap">' +
+      '<input type="password" id="cloudTokenInput" value="' + esc(cloudToken()) +
+      '" placeholder="paste ADMIN_TOKEN" style="flex:1;min-width:220px">' +
+      '<button class="btn small dark" onclick="saveCloudToken(document.getElementById(\'cloudTokenInput\').value)">Save token</button></div></div>' +
+      '<div style="margin-top:.8rem"><button class="btn small dark" onclick="syncFromCloud()">☁️ Load from Google Sheet</button></div>' +
+      (cloudLog.length ? '<h4 style="margin-top:1.2rem">Recent activity in the register</h4>' +
+        '<div class="table-wrap" style="max-height:220px;overflow:auto"><table><thead><tr>' +
+        '<th>When</th><th>Event</th><th>Detail</th><th>Status</th></tr></thead><tbody>' +
+        cloudLog.slice(0, 20).map(function (l) {
+          return '<tr><td>' + esc(l.at) + '</td><td>' + esc(l.event) + '</td><td>' + esc(l.detail) +
+            '</td><td><span class="pill ' + (l.status === 'failed' ? 'rejected' : 'approved') + '">' +
+            esc(l.status || l.channel || 'ok') + '</span></td></tr>';
+        }).join('') + '</tbody></table></div>' : '') + '</div>'
+    : '<div class="note" style="margin-bottom:1rem"><b>☁️ Central register: not connected.</b> ' +
+      'This copy saves records in this browser only. To send every registration to one ' +
+      'private Google Sheet, set <code>CONFIG.cloudUrl</code> and <code>CONFIG.adminToken</code> ' +
+      'at the top of this file (see <code>GOOGLE-SHEET-SETUP.md</code>).</div>';
+  $('tab-data').innerHTML = '<h3>💾 Data &amp; backups</h3>' + cloudBox +
+    '<p class="hint">' + (cloudOn()
+      ? 'Your Google Sheet is the master copy. Keep a backup as well — export the full JSON regularly.'
+      : 'All records live in this browser (localStorage). Export a backup regularly — especially the ' +
+        'full JSON backup, which can be restored on any computer.') + '</p>' +
     '<div style="display:flex;gap:.6rem;flex-wrap:wrap;margin:1rem 0">' +
     '<button class="btn small dark" onclick="backupJSON()">⬇️ Full backup (.json)</button> ' +
     '<button class="btn small" onclick="exportPlayers()">⬇️ Players (.csv)</button> ' +
     '<button class="btn small" onclick="exportTeams()">⬇️ Teams (.csv)</button> ' +
     '<button class="btn small" onclick="exportOfficials()">⬇️ Officials (.csv)</button> ' +
     '<button class="btn small line" onclick="loadDemo()">Load demo tournament</button> ' +
+    '<button class="btn small dark" onclick="syncFromCloud()">☁️ Load from Google Sheet</button> ' +
     '<button class="btn small danger" onclick="wipeAll()">Wipe all data</button></div>' +
     '<label>Restore from backup file</label><input type="file" id="restoreFile" accept=".json" onchange="restoreJSON(this)">';
 }
@@ -1865,6 +2108,7 @@ function loadDemo() {
   renderHome();
   checkSlots();
   loadPublished();
+  loadCloudPublic();          // pull the confirmed clubs from the Google Sheet
 
   // first run: make the documented default password active
   if (!state.settings.adminHash) { state.settings.adminHash = hashPwd('DynastyHope@2026'); save(); }
