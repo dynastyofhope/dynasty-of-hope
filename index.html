@@ -667,6 +667,9 @@ footer.site h4{color:var(--gold)}
       <div class="note" style="margin-top:1.2rem;font-size:.85rem">
         <strong>Default password:</strong> <code>hope2026</code><br>
         Change it after your first login under <em>Settings → Change password</em>.
+        <p style="margin:.7rem 0 0">Forgotten it?
+        <a href="#" onclick="adminRecover();return false">Reset the password in this browser</a>
+        — your records are kept.</p>
       </div>
     </div>
 
@@ -734,13 +737,13 @@ footer.site h4{color:var(--gold)}
            <a href="#" onclick="go('form');return false">Printable registration form</a><br>
            <a href="#" onclick="go('admin');return false">Administrator login</a></p></div>
       <div><h4>Contact</h4>
-        <p>Email: <a href="mailto:dynastyofhope2023@gmail.com">dynastyofhope2023@gmail.com</a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
+        <p>Email: <a href="/cdn-cgi/l/email-protection#8ce8f5e2edfff8f5e3eae4e3fce9bebcbebfccebe1ede5e0a2efe3e1"><span class="__cf_email__" data-cfemail="23475a4d4250575a4c454b4c53461113111063444e424a4f0d404c4e">[email&#160;protected]</span></a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
     </div>
     <div class="copyright">© 2026 Dynasty of Hope Foundation. All rights reserved. — Built for the Goni Gora Community.</div>
   </div>
 </footer>
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 /* ==========================================================================
    1. STORAGE  (localStorage, with in-memory fallback for sandboxed previews)
    ========================================================================== */
@@ -1585,6 +1588,12 @@ function renderFixtures() {
    9. ADMIN
    ========================================================================== */
 var session = { admin: false };
+/* The password that ships with this file. If the committee has NOT yet chosen their
+   own password (Admin -> Settings), a newly issued file resets the stored password to
+   this one on first load — so a password change always reaches every browser.
+   As soon as the committee sets their own, pwdCustom is set and we never touch it. */
+var ADMIN_DEFAULT = 'hope2026';
+var ADMIN_PWD_VERSION = 2;
 function hashPwd(pwd) {
   if (!state.settings.salt) state.settings.salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
   return sha256(state.settings.salt + '::' + pwd);
@@ -1606,6 +1615,27 @@ $('loginForm').addEventListener('submit', function (e) {
   }
 });
 function logout() { session.admin = false; renderAdmin(); }
+
+/* Forgot the password? A recovery code resets it in THIS browser only — every team,
+   player and official is kept. The code is in GOOGLE-SHEET-SETUP.md. */
+var ADMIN_RECOVERY_CODE = 'DoH-RESET-2026';
+function adminRecover() {
+  var code = null;
+  try { code = window.prompt('Enter the administrator recovery code:'); }
+  catch (e) { code = null; }
+  if (code === null) return;
+  if (String(code).trim() !== ADMIN_RECOVERY_CODE) {
+    flash('error', 'Wrong recovery code. Your data is untouched.');
+    return;
+  }
+  state.settings.adminHash = hashPwd(ADMIN_DEFAULT);
+  state.settings.pwdCustom = false;
+  state.settings.pwdVersion = ADMIN_PWD_VERSION;
+  save();
+  flash('ok', 'Password reset. Sign in with the default password — your teams, ' +
+    'players and officials are untouched.');
+  $('adminPwd').focus();
+}
 function adminTab(name, btn) {
   var names = ['teams', 'players', 'officials', 'fixtures', 'documents', 'data', 'settings'];
   names.forEach(function (n) { $('tab-' + n).classList.toggle('hidden', n !== name); });
@@ -1981,9 +2011,11 @@ function changePwd() {
   var a = $('newPwd').value, b = $('newPwd2').value;
   if (a.length < 6) { flash('error', 'Password must be at least 6 characters.'); return; }
   if (a !== b) { flash('error', 'Passwords do not match.'); return; }
-  state.settings.adminHash = hashPwd(a); save();
+  state.settings.adminHash = hashPwd(a);
+  state.settings.pwdCustom = true;                 // never auto-reset again
+  save();
   $('newPwd').value = ''; $('newPwd2').value = '';
-  flash('ok', 'Administrator password updated.');
+  flash('ok', 'Administrator password updated. This browser will keep it.');
 }
 
 /* ==========================================================================
@@ -2110,8 +2142,13 @@ function loadDemo() {
   loadPublished();
   loadCloudPublic();          // pull the confirmed clubs from the Google Sheet
 
-  // first run: make the documented default password active
-  if (!state.settings.adminHash) { state.settings.adminHash = hashPwd('hope2026'); save(); }
+  // Keep the shipped password in force until the committee chooses their own.
+  // A browser that stored an older default picks up the new one automatically.
+  if (!state.settings.pwdCustom && state.settings.pwdVersion !== ADMIN_PWD_VERSION) {
+    state.settings.adminHash = hashPwd(ADMIN_DEFAULT);
+    state.settings.pwdVersion = ADMIN_PWD_VERSION;
+    save();
+  }
 
   // first run on a fresh browser: optionally load the demo tournament
   if (CONFIG.demoOnFirstRun && !state.settings.seeded && !state.teams.length) {
@@ -2121,5 +2158,5 @@ function loadDemo() {
   checkSlots();
 })();
 </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a43d1b39afa4fe3c',t:'MTc5MDg3NDg5NA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
