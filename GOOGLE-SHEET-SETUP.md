@@ -102,7 +102,7 @@ commit — GitHub Pages updates within a minute.
 3. The club now appears on the public **Teams** page of the website
 
 ### From the website's admin panel
-Log in (password `DynastyHope@2026` — change it in Settings), then:
+Log in (password `hope2026` — change it in Settings), then:
 - **Data → ☁️ Load from Google Sheet** — pulls every team, player, official and the
   activity log into the panel
 - **Approve / Reject** on a team — writes back to the Sheet *and* sends the CONFIRMED
