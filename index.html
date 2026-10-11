@@ -772,7 +772,7 @@ footer.site h4{color:#ff6b72}
            <a href="#" onclick="go('form');return false">Printable registration form</a><br>
            <a href="#" id="footerAdminLink" onclick="go('admin');return false">Administrator login</a></p></div>
       <div><h4>Contact</h4>
-        <p>Email: <a href="/cdn-cgi/l/email-protection#c0a4b9aea1b3b4b9afa6a8afb0a5f2f0f2f380a7ada1a9aceea3afad"><span class="__cf_email__" data-cfemail="80e4f9eee1f3f4f9efe6e8eff0e5b2b0b2b3c0e7ede1e9ecaee3efed">[email&#160;protected]</span></a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
+        <p>Email: <a href="/cdn-cgi/l/email-protection#8aeef3e4ebf9fef3e5ece2e5faefb8bab8b9caede7ebe3e6a4e9e5e7"><span class="__cf_email__" data-cfemail="93f7eafdf2e0e7eafcf5fbfce3f6a1a3a1a0d3f4fef2faffbdf0fcfe">[email&#160;protected]</span></a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
     </div>
     <div class="copyright">© 2026 Dynasty of Hope Foundation. All rights reserved. — Built for the Goni Gora Community.</div>
   </div>
@@ -835,6 +835,30 @@ function isAdminSite() {
   return false;
 }
 var ADMIN_SITE = isAdminSite();
+/* The committee needs a way in that no visitor will stumble on. Pressing
+   Ctrl+Shift+A — or tapping the small copyright line three times — opens the
+   control panel. Nothing on screen mentions it. */
+function openAdminInterface() {
+  try {
+    var path = location.pathname || '';
+    if (/\/$|\/index\.html$/.test(path)) { location.href = 'admin.html'; return; }
+  } catch (e) { /* file:// previews */ }
+  try { location.href = '?admin'; } catch (e) { location.reload(); }
+}
+function bindAdminShortcut() {
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && e.shiftKey && String(e.key || '').toLowerCase() === 'a') {
+      e.preventDefault(); openAdminInterface();
+    }
+  });
+  var taps = 0, timer = null;
+  var cr = document.querySelector('.copyright');
+  if (cr) cr.addEventListener('click', function () {
+    taps++; clearTimeout(timer);
+    timer = setTimeout(function () { taps = 0; }, 2000);
+    if (taps >= 3) { taps = 0; openAdminInterface(); }
+  });
+}
 function hideAdminFromVisitors() {
   if (ADMIN_SITE) return;
   var btn = document.querySelector('#nav button[data-page=admin]');
@@ -1838,6 +1862,8 @@ function renderCloudStatus() {
     'align-items:center;gap:1rem;flex-wrap:wrap">' +
     '<div><b>☁️ Central register: ' +
     (cloudToken() ? 'connected' : 'token needed') + '</b> — ' +
+    (cloudToken() ? '' : 'paste your admin token in <b>💾 Data → Google Sheet admin token</b> ' +
+      '(or press <b>🔑 Enter token</b>) to load the register. ') +
     state.teams.length + ' team(s) loaded' +
     (cloudLastSync ? ' · last sync ' + esc(cloudLastSync) : ' · not synced this session') +
     (pending ? ' · <span style="color:var(--danger)">' + pending +
@@ -2423,6 +2449,7 @@ function loadDemo() {
   loadCloudPublic();          // pull the confirmed clubs from the Google Sheet
   if (cloudOn()) setInterval(loadCloudPublic, 60000);   // keep visitors up to date
   if (ADMIN_SITE) go('admin');            // admin.html opens on the control panel
+  else bindAdminShortcut();               // public site: the committee's hidden door
 
   // Central-only mode: anything already uploaded is removed from this device.
   // Entries that never reached the Sheet are kept so they can be retried.
@@ -2454,5 +2481,5 @@ function loadDemo() {
   checkSlots();
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a48ff13a2b94cd1c',t:'MTc5MTc0MzQ5Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4901f3ecb039d0f',t:'MTc5MTc0NTM3Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
