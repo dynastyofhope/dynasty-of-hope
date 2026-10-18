@@ -199,9 +199,39 @@ footer.site h4{color:#ff6b72}
 .hidden{display:none !important}
 @media(max-width:720px){nav.main{width:100%}.hero{padding:2.2rem 0 1.8rem}.row{grid-template-columns:1fr}}
 
+/* ---------- share ---------- */
+.share-row{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.9rem}
+.share-row-label{font-size:.76rem;color:var(--muted);margin-right:.2rem}
+.share-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.34rem .62rem;border-radius:999px;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--ink);font:inherit;
+  font-size:.78rem;font-weight:600;cursor:pointer;text-decoration:none}
+.share-btn:hover{text-decoration:none;background:var(--blue);color:#fff;border-color:var(--blue)}
+.share-btn.wa:hover{background:#25D366;border-color:#25D366;color:#fff}
+.share-btn.fb:hover{background:#1877f2;border-color:#1877f2;color:#fff}
+.share-btn.tw:hover{background:#000;border-color:#000;color:#fff}
+.share-btn.tg:hover{background:#229ED9;border-color:#229ED9;color:#fff}
+.share-btn.sms:hover,.share-btn.mail:hover{background:var(--red);border-color:var(--red);color:#fff}
+.share-btn.copy:hover,.share-btn.more:hover{background:var(--red);border-color:var(--red);color:#fff}
+.share-fab{position:fixed;right:18px;bottom:18px;z-index:60;width:56px;height:56px;border-radius:50%;
+  background:var(--blue);color:#fff;border:2px solid var(--red);font-size:1.35rem;cursor:pointer;
+  box-shadow:0 6px 18px rgba(0,0,0,.55);line-height:1}
+.share-fab:hover{background:var(--red)}
+.share-menu{position:fixed;right:18px;bottom:88px;z-index:61;background:var(--surface);
+  border:1px solid var(--blue);border-radius:12px;padding:1rem .9rem .9rem;width:min(290px,86vw);
+  box-shadow:0 12px 34px rgba(0,0,0,.6)}
+.share-menu h4{margin:0 0 .7rem;font-size:.95rem;color:#fff}
+.share-menu a,.share-menu button{display:flex;align-items:center;gap:.6rem;width:100%;margin:.28rem 0;
+  padding:.55rem .7rem;border-radius:9px;border:1px solid var(--blue);background:var(--surface-2);
+  color:var(--ink);font:inherit;font-weight:600;font-size:.9rem;cursor:pointer;text-decoration:none}
+.share-menu a:hover,.share-menu button:hover{background:var(--blue);color:#fff;text-decoration:none}
+.share-menu .wa:hover{background:#25D366;border-color:#25D366;color:#fff}
+.share-close{position:absolute;top:.35rem;right:.6rem;background:none;border:none;color:var(--muted);
+  font-size:1.15rem;cursor:pointer;font-family:inherit}
+.share-menu .hint{margin:.6rem 0 0;font-size:.74rem}
+
 /* ---------- printing stays on white paper ---------- */
 @media print{
-  header.site,.topbar,footer.site,nav.main,.no-print,.flashes,.warnbar{display:none !important}
+  header.site,.topbar,footer.site,nav.main,.no-print,.flashes,.warnbar,.share-fab,.share-menu{display:none !important}
   body{background:#fff !important;background-image:none !important;color:#000 !important}
   .page{display:none !important;padding:0}
   .page.active{display:block !important}
@@ -279,6 +309,7 @@ footer.site h4{color:#ff6b72}
         <button class="btn" onclick="go('register')">Register Your Team</button>
         <button class="btn ghost" onclick="go('officials')">Register as Referee / Official</button>
       </div>
+      <div id="heroShare"></div>
       <div class="stats">
         <div class="stat"><b id="stTeams">0/16</b><span>Teams Registered</span></div>
         <div class="stat"><b id="stSlots">16</b><span>Slots Remaining</span></div>
@@ -506,6 +537,7 @@ footer.site h4{color:#ff6b72}
       <p id="fixIntro">Straight knockout: Round of 16 → Quarter-finals → Semi-finals → Grand Final.</p>
     </div>
     <div id="bracketArea"></div>
+    <div id="drawShare"></div>
     <div class="grid g2" style="margin-top:1rem">
       <div class="card"><h3>Competition rules</h3>
         <ul style="padding-left:1.1rem;margin:.4rem 0">
@@ -772,11 +804,15 @@ footer.site h4{color:#ff6b72}
            <a href="#" onclick="go('form');return false">Printable registration form</a><br>
            <a href="#" id="footerAdminLink" onclick="go('admin');return false">Administrator login</a></p></div>
       <div><h4>Contact</h4>
-        <p>Email: <a href="/cdn-cgi/l/email-protection#8aeef3e4ebf9fef3e5ece2e5faefb8bab8b9caede7ebe3e6a4e9e5e7"><span class="__cf_email__" data-cfemail="93f7eafdf2e0e7eafcf5fbfce3f6a1a3a1a0d3f4fef2faffbdf0fcfe">[email&#160;protected]</span></a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
+        <p>Email: <a href="/cdn-cgi/l/email-protection#c6a2bfa8a7b5b2bfa9a0aea9b6a3f4f6f4f586a1aba7afaae8a5a9ab"><span class="__cf_email__" data-cfemail="3a5e43545b494e43555c52554a5f080a08097a5d575b535614595557">[email&#160;protected]</span></a><br>Phone: <a href="tel:+2347033828292">0703 382 8292</a><br>WhatsApp: <a href="https://wa.me/2347033828292" target="_blank" rel="noopener">0703 382 8292</a><br>Office: No. 5 Bravo Close, Kwakwachi, Kano, Nigeria</p></div>
     </div>
     <div class="copyright">© 2026 Dynasty of Hope Foundation. All rights reserved. — Built for the Goni Gora Community.</div>
   </div>
 </footer>
+
+<!-- ==================== SHARE ==================== -->
+<button class="share-fab no-print" id="shareFab" onclick="openShare()" title="Share this page">📤</button>
+<div class="share-menu no-print hidden" id="shareMenu" role="dialog" aria-label="Share this page"></div>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 /* ==========================================================================
@@ -1191,6 +1227,115 @@ nav.addEventListener('click', function (e) {
 });
 
 /* ==========================================================================
+   SHARE — tell people about the championship (or about one club)
+   On a phone this uses the phone's own share sheet; on a computer a small
+   panel opens with WhatsApp, Facebook, X, e-mail and "copy link".
+   ========================================================================== */
+var SHARE = {
+  title: 'Goni Gora Championship 2026',
+  text: 'Dynasty of Hope Foundation — Goni Gora Community Development Football Championship 2026. ' +
+    'Enter your team or come and support!',
+  url: ''
+};
+function shareUrl() {
+  try {
+    var u = String(location.href).split('#')[0];
+    u = u.replace(/([?&])admin(=|&|$)/, '$1').replace(/([?&])key=[^&]*/, '$1');
+    return u.replace(/[?&]+$/, '');
+  } catch (e) { return ''; }
+}
+function sharePayload(over) {
+  var p = { title: SHARE.title, text: SHARE.text, url: shareUrl() };
+  if (over) {
+    if (over.title) p.title = over.title;
+    if (over.text) p.text = over.text;
+  }
+  return p;
+}
+function openShare(over) {
+  var p = sharePayload(over);
+  try {
+    if (navigator.share) {                     // phones: use the native sheet
+      navigator.share(p).catch(function () { showShareMenu(p); });
+      return;
+    }
+  } catch (e) { /* fall through to our own panel */ }
+  showShareMenu(p);
+}
+function showShareMenu(p) {
+  var box = $('shareMenu'); if (!box) return;
+  var url = encodeURIComponent(p.url);
+  var txt = encodeURIComponent(p.text + ' ' + p.url);
+  box.innerHTML =
+    '<button class="share-close" onclick="closeShare()" aria-label="Close">✕</button>' +
+    '<h4>Share</h4>' +
+    '<a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=' + txt + '">💬 WhatsApp</a>' +
+    '<a target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=' + url + '">📘 Facebook</a>' +
+    '<a target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=' + txt + '">✖ X (Twitter)</a>' +
+    '<a class="tg" target="_blank" rel="noopener" href="https://t.me/share/url?url=' + url +
+      '&text=' + encodeURIComponent(p.text) + '">✈️ Telegram</a>' +
+    '<a href="sms:?&body=' + txt + '">📱 Text message</a>' +
+    '<a target="_blank" rel="noopener" href="mailto:?subject=' + encodeURIComponent(p.title) +
+      '&body=' + txt + '">✉️ E-mail</a>' +
+    '<button onclick="copyLink()">🔗 Copy link</button>' +
+    '<p class="hint">' + esc(p.text) + '</p>';
+  box.classList.remove('hidden');
+}
+function closeShare() { var b = $('shareMenu'); if (b) b.classList.add('hidden'); }
+/* A row of share buttons that can be dropped anywhere: the hero, a club card,
+   the draw, the confirmation screen. */
+function shareRow(over, label, tap) {
+  var p = sharePayload(over);
+  var url = encodeURIComponent(p.url);
+  var txt = encodeURIComponent(p.text + ' ' + p.url);
+  return '<div class="share-row no-print">' +
+    (label ? '<span class="share-row-label">' + esc(label) + '</span>' : '') +
+    '<a class="share-btn wa" target="_blank" rel="noopener" title="Share on WhatsApp" ' +
+      'href="https://wa.me/?text=' + txt + '">💬 WhatsApp</a>' +
+    '<a class="share-btn fb" target="_blank" rel="noopener" title="Share on Facebook" ' +
+      'href="https://www.facebook.com/sharer/sharer.php?u=' + url + '">📘 Facebook</a>' +
+    '<a class="share-btn tw" target="_blank" rel="noopener" title="Share on X" ' +
+      'href="https://twitter.com/intent/tweet?text=' + txt + '">✖ X</a>' +
+    '<a class="share-btn tg" target="_blank" rel="noopener" title="Share on Telegram" ' +
+      'href="https://t.me/share/url?url=' + url + '&text=' + encodeURIComponent(p.text) + '">✈️ Telegram</a>' +
+    '<a class="share-btn sms" title="Share by text message" href="sms:?&body=' + txt + '">📱 SMS</a>' +
+    '<a class="share-btn mail" title="Share by e-mail" href="mailto:?subject=' +
+      encodeURIComponent(p.title) + '&body=' + txt + '">✉️ E-mail</a>' +
+    '<button class="share-btn copy" onclick="copyLink()">🔗 Copy link</button>' +
+    '<button class="share-btn more" data-share-team="' + esc(over && over.team ? over.team : '') +
+      '" onclick="shareFromData(this)">📤 Share…</button>' +
+    '</div>';
+}
+/* "Share…" opens the phone's own sheet (or the panel on a computer). */
+function shareFromData(el) {
+  var name = (el && el.dataset && el.dataset.shareTeam) || '';
+  if (name) shareTeam(name); else openShare();
+}
+function copyLink() {
+  var text = shareUrl(), ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text); ok = true;
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      ok = !!document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+  } catch (e) { ok = false; }
+  flash(ok ? 'ok' : 'warn', ok ? 'Link copied — paste it anywhere.'
+    : 'Copy this link: ' + text);
+}
+function shareTeam(name) {
+  if (!name) return;
+  SHARE.title = name + ' — Goni Gora Championship 2026';
+  SHARE.text = name + ' has entered the Goni Gora Community Development Football ' +
+    'Championship 2026. Come and support them!';
+  openShare();
+}
+
+/* ==========================================================================
    4. PUBLIC RENDERING
    ========================================================================== */
 function statCounts() {
@@ -1238,6 +1383,9 @@ function renderTeams() {
       '<div class="kv"><span>Players</span><b>' + t.players.length + ' / 15</b></div>' +
       '<div class="kv"><span>Coach</span><b>' + esc(t.coachName) + '</b></div>' +
       '<div class="kv"><span>Captain</span><b>' + esc(t.captainName || '—') + '</b></div>' +
+      shareRow({ title: t.teamName + ' — Goni Gora Championship 2026',
+        text: t.teamName + ' has entered the Goni Gora Community Development Football ' +
+          'Championship 2026. Come and support them!', team: t.teamName }, 'Share:') +
       '<p style="margin-top:.9rem"><button class="btn small dark" onclick="viewTeam(\'' + t.id + '\')">View squad →</button></p></div>';
   }).join('') || '<div class="note">No team has been confirmed yet. <a href="#" onclick="go(\'register\');return false">Register your club</a>.</div>';
 }
@@ -1265,7 +1413,11 @@ function viewTeam(id) {
     '<p style="color:var(--muted);margin:0">📍 ' + esc(t.community || 'Goni Gora') + ' · Reference ' + ref(t.id) + '</p></div>' +
     '<div style="text-align:right"><span class="pill ' + t.status + '">' + t.status + '</span>' +
     '<p class="hint" style="margin:.3rem 0 0">Registered ' + esc(t.createdAt) + '</p>' +
-    '<button class="btn small line no-print" onclick="go(\'teams\')">← All teams</button></div></div>' +
+    '<button class="btn small line no-print" onclick="go(\'teams\')">← All teams</button> ' +
+    '</div>' +
+    shareRow({ title: t.teamName + ' — Goni Gora Championship 2026',
+      text: t.teamName + ' has entered the Goni Gora Community Development Football ' +
+        'Championship 2026. Come and support them!', team: t.teamName }, 'Share this club:') +
     '<div class="row" style="margin-top:1.4rem">' +
     '<div class="card"><h4>Coach</h4><p style="margin:0">' + esc(t.coachName) + '</p></div>' +
     '<div class="card"><h4>Captain</h4><p style="margin:0">' + esc(t.captainName || '—') + '</p></div>' +
@@ -1506,6 +1658,9 @@ function showSuccess(t) {
     '">💬 Message the office on WhatsApp</a> ' +
     '<button class="btn dark" onclick="printSuccess()">🖨️ Print this page</button> ' +
     '<button class="btn line" onclick="resetRegForm()">Register another team</button></p>' +
+    shareRow({ title: t.teamName + ' — Goni Gora Championship 2026',
+      text: 'We have just entered ' + t.teamName + ' in the Goni Gora Community ' +
+        'Development Football Championship 2026!', team: t.teamName }, 'Tell your players:') +
     '<p class="hint">WhatsApp and calls: 0703 382 8292. Your confirmation email is on its way' +
     (t.cloudRef ? ' (reference ' + esc(t.cloudRef) + ')' : '') + '.</p></div>';
   $('regSuccess').classList.remove('hidden');
@@ -2448,8 +2603,21 @@ function loadDemo() {
   loadPublished();
   loadCloudPublic();          // pull the confirmed clubs from the Google Sheet
   if (cloudOn()) setInterval(loadCloudPublic, 60000);   // keep visitors up to date
-  if (ADMIN_SITE) go('admin');            // admin.html opens on the control panel
-  else bindAdminShortcut();               // public site: the committee's hidden door
+  if ($('heroShare')) $('heroShare').innerHTML = shareRow(null, 'Tell a club:');
+  if ($('drawShare')) $('drawShare').innerHTML =
+    shareRow({ title: 'Goni Gora Championship 2026 — the draw',
+      text: 'Here is the Goni Gora Community Development Football Championship 2026 ' +
+        'knockout draw. See who your team plays!' }, 'Share the draw:');
+
+  if (ADMIN_SITE) {
+    go('admin');                          // admin.html opens on the control panel
+    var fab = $('shareFab');              // no public sharing from the panel
+    if (fab && fab.parentNode) fab.parentNode.removeChild(fab);
+    var menu = $('shareMenu');
+    if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
+  } else {
+    bindAdminShortcut();                  // public site: the committee's hidden door
+  }
 
   // Central-only mode: anything already uploaded is removed from this device.
   // Entries that never reached the Sheet are kept so they can be retried.
@@ -2481,5 +2649,6 @@ function loadDemo() {
   checkSlots();
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4901f3ecb039d0f',t:'MTc5MTc0NTM3Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"1954b47c125f43f8b4338b3c4f804e4f","spa":2}' crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4cb648a7b00992f',t:'MTc5MjM2Njg3NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
